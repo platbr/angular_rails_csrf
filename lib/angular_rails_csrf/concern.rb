@@ -3,11 +3,17 @@ module AngularRailsCsrf
     extend ActiveSupport::Concern
 
     included do
-      before_filter :set_xsrf_token_cookie
+      if Rails::VERSION::MAJOR < 4
+        after_filter :set_xsrf_token_cookie
+      else
+        after_action :set_xsrf_token_cookie
+      end
     end
 
     def set_xsrf_token_cookie
-      cookies['XSRF-TOKEN'] = form_authenticity_token if protect_against_forgery?
+      if protect_against_forgery? && !respond_to?(:__exclude_xsrf_token_cookie?)
+        cookies['XSRF-TOKEN'] = form_authenticity_token
+      end
     end
 
     def verified_request?
@@ -15,6 +21,16 @@ module AngularRailsCsrf
         super || valid_authenticity_token?(session, request.headers['X-XSRF-TOKEN'])
       else
         super || form_authenticity_token == request.headers['X-XSRF-TOKEN']
+      end
+    end
+
+    module ClassMethods
+      def exclude_xsrf_token_cookie
+        self.class_eval do
+          def __exclude_xsrf_token_cookie?
+            true
+          end
+        end
       end
     end
   end
